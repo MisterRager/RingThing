@@ -8,6 +8,7 @@
 #include <soc/rmt_struct.h>
 #include <esp_system.h>
 #include <stdio.h>
+#include <dirent.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "sdmmc_cmd.h"
@@ -20,8 +21,10 @@
 
 static rgbVal * pixels;
 static TaskHandle_t flushLightsTask = NULL;
+static TaskHandle_t readFileTask = NULL;
+static sdmmc_card_t *card;
 
-void initCardReaderSdMmc() {
+bool initCardReaderSdMmc() {
     ESP_LOGI(TAG, "Setup GPIO pull-up for SD/MMC");
 
     // DAT0
@@ -42,12 +45,11 @@ void initCardReaderSdMmc() {
 
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 
-    esp_vfs_fat_mount_config_t mount_config = {
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false,
         .max_files = 5
     };
 
-    sdmmc_card_t *card;
     esp_err_t err = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
 
     if (err != ESP_OK) {
@@ -56,6 +58,29 @@ void initCardReaderSdMmc() {
         } else {
             ESP_LOGE(TAG, "FAILED to initialize the card (%d). Make sure SD hardware is configured properly", err);
         }
+        return false;
+    }
+
+    return true;
+}
+
+void cardInfo() {
+    sdmmc_card_print_info(stdout, card);
+}
+
+void cardPrintFiles() {
+    DIR * dr = opendir("/sdcard");
+
+    if (dr == NULL) {
+        ESP_LOGE(TAG, "Could not open directory /sdcard");
+    } else {
+        struct dirent * de;
+
+        while ((de = readdir(dr)) != NULL) {
+            ESP_LOGI(TAG, "file %s", de->d_name);
+        }
+
+        closedir(dr);
     }
 }
 
@@ -65,6 +90,18 @@ extern "C" void testLights(void *params) {
         ws2812_setColors(PIXEL_COUNT, pixels);
 
         vTaskSuspend(flushLightsTask);
+    }
+}
+
+extern "C" void loadSdCard(void * params) {
+    ESP_LOGI(TAG, "Load SD card");
+
+    if (initCardReaderSdMmc()) {
+        cardInfo();
+        cardPrintFiles();
+    }
+    for(;;) {
+        vTaskSuspend(readFileTask);
     }
 }
 
@@ -83,9 +120,8 @@ extern "C" void app_main() {
         ESP_LOGI(TAG, "light %d set up now", k);
     }
 
+    xTaskCreate(loadSdCard, "mount SDMMC card", 4096, NULL, 10, &readFileTask);
     xTaskCreate(testLights, "ws2812 even odd demo", 4096, NULL, 10, &flushLightsTask);
-
-    initCardReaderSdMmc();
 
     ESP_LOGI(TAG, "app_main() out");
     return;
