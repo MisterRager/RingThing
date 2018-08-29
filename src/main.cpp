@@ -21,23 +21,26 @@
 static rgbVal * pixels;
 static TaskHandle_t flushLightsTask = NULL;
 
-void initCardReader() {
+void initCardReaderSdMmc() {
     ESP_LOGI(TAG, "Setup GPIO pull-up for SD/MMC");
 
-    // DAT0 (SD) or DO (SPI)
+    // DAT0
+    gpio_set_pull_mode(GPIO_NUM_2, GPIO_PULLUP_ONLY);
+    // DAT1
     gpio_set_pull_mode(GPIO_NUM_4, GPIO_PULLUP_ONLY);
-    // CD (SD) or CS (SPI)
+    // DAT2
+    gpio_set_pull_mode(GPIO_NUM_12, GPIO_PULLUP_ONLY);
+    // DAT3
     gpio_set_pull_mode(GPIO_NUM_13, GPIO_PULLUP_ONLY);
     // CLK
     gpio_set_pull_mode(GPIO_NUM_14, GPIO_PULLUP_ONLY);
-    // CMD (SD) or DI (SPI)
+    // CMD
     gpio_set_pull_mode(GPIO_NUM_15, GPIO_PULLUP_ONLY);
 
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.flags |= SDMMC_HOST_FLAG_SPI;
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    host.slot = SDMMC_HOST_SLOT_1;
 
-    sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
-    slot_config.gpio_miso = GPIO_NUM_4;
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 
     esp_vfs_fat_mount_config_t mount_config = {
         .format_if_mount_failed = false,
@@ -82,7 +85,7 @@ extern "C" void app_main() {
 
     xTaskCreate(testLights, "ws2812 even odd demo", 4096, NULL, 10, &flushLightsTask);
 
-    initCardReader();
+    initCardReaderSdMmc();
 
     ESP_LOGI(TAG, "app_main() out");
     return;
