@@ -1,18 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include <netdb.h>
-#include <netinet/in.h>
-
-#include <string.h>
-#include <stdint.h>
-
-#include "http_request.h"
-#include "http_response.h"
-#include "http_router.h"
-
-#include "esp_log.h"
+#include "./http_server.h"
 
 static const char * TAG = "HTTPD";
 

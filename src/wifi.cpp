@@ -1,19 +1,10 @@
-#include "cstring"
-
-#include "esp_wifi.h"
-#include "esp_err.h"
-#include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_event_loop.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-
+#include "./wifi.h"
 
 static EventGroupHandle_t wifi_event_group;
 const int WIFI_CONNECTED_BIT = BIT0;
 static const char * TAG  = "WiFi";
+
+static std::function<onConnectedCallback> onConnected;
 
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 {
@@ -25,6 +16,10 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         ESP_LOGI(TAG, "got ip:%s",
                  ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        if (onConnected) {
+            ESP_LOGI(TAG, "calling onConnected callback");
+            onConnected();
+        }
         break;
     case SYSTEM_EVENT_AP_STACONNECTED:
         ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
@@ -47,7 +42,8 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
     return ESP_OK;
 }
 
-void connect_wifi() {
+void connect_wifi(std::function<onConnectedCallback> userOnConnected) {
+    onConnected = userOnConnected;
     ESP_LOGI("WIFI", "initialization begin");
     wifi_event_group = xEventGroupCreate();
 

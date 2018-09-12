@@ -8,6 +8,7 @@
 #include <esp_system.h>
 #include <stdio.h>
 #include "esp_log.h"
+#include <functional>
 
 #include "./card.h"
 #include "./lights.h"
@@ -42,7 +43,12 @@ extern "C" void loadSdCard(void * params) {
 
 extern "C" void startWifiAndHttpServer(void * params) {
     ESP_LOGI(TAG, "Connect to WIFI");
-    connect_wifi();
+    connect_wifi([]() {
+        ESP_LOGI(TAG, "onConnect callback triggered!");
+        vTaskResume(networkInitTask);
+    });
+
+    vTaskSuspend(networkInitTask);
     ESP_LOGI(TAG, "Init HTTPD");
 
     ringthing_http_start_server();
