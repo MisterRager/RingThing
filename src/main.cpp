@@ -19,6 +19,7 @@ static auto TAG = "RingThing";
 
 static TaskHandle_t flushLightsTask = NULL;
 static TaskHandle_t readFileTask = NULL;
+static TaskHandle_t httpdTask = NULL;
 static TaskHandle_t networkInitTask = NULL;
 
 static void flushLights() {
@@ -45,33 +46,28 @@ extern "C" void loadSdCard(void * params) {
     }
 }
 
+extern "C" void startHttpServer(void * params) {
+    ringthing_http_start_server();
+    for (;;) {
+        ESP_LOGI(TAG, "ENTERING WORKER LOOP FOR HTTPD");
+        ringthing_http_server_loop();
+    }
+}
+
 extern "C" void startWifiAndHttpServer(void * params) {
     ESP_LOGI(TAG, "Connect to WIFI");
     connect_wifi([]() {
         ESP_LOGI(TAG, "onConnect callback triggered!");
-        vTaskResume(networkInitTask);
         flushLights();
+        xTaskCreate(startHttpServer, "start httpd", 4096, NULL, 10, &httpdTask);
     });
 
     vTaskSuspend(networkInitTask);
     ESP_LOGI(TAG, "Init HTTPD");
-
-    ringthing_http_start_server();
-
-    //const TickType_t xDelay = 10 / portTICK_PERIOD_MS;
-
-    for (;;) {
-        ESP_LOGI(TAG, "ENTERING WORKER LOOP FOR HTTPD");
-        ringthing_http_server_loop();
-        //vTaskDelay(xDelay);
-    }
-
-    vTaskSuspend(networkInitTask);
 }
 
 extern "C" void app_main() {
     ESP_LOGI(TAG, "app_main()");
-
 
     xTaskCreate(loadSdCard, "mount SDMMC card", 4096, NULL, 10, &readFileTask);
     xTaskCreate(testLights, "ws2812 even odd demo", 4096, NULL, 10, &flushLightsTask);
