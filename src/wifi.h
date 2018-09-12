@@ -1,5 +1,6 @@
 #include "cstring"
 #include <functional>
+#include <memory>
 
 #include "esp_wifi.h"
 #include "esp_err.h"

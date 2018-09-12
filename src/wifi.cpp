@@ -4,10 +4,11 @@ static EventGroupHandle_t wifi_event_group;
 const int WIFI_CONNECTED_BIT = BIT0;
 static const char * TAG  = "WiFi";
 
-static std::function<onConnectedCallback> onConnected;
+static std::unique_ptr<std::function<onConnectedCallback>> onConnected;
 
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 {
+    std::function<onConnectedCallback> *onConnectedFn = onConnected.get();
     switch(event->event_id) {
     case SYSTEM_EVENT_STA_START:
         esp_wifi_connect();
@@ -16,18 +17,21 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         ESP_LOGI(TAG, "got ip:%s",
                  ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
-        if (onConnected) {
+
+        if (onConnectedFn) {
             ESP_LOGI(TAG, "calling onConnected callback");
-            onConnected();
+            (*onConnectedFn)();
         }
         break;
     case SYSTEM_EVENT_AP_STACONNECTED:
-        ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
+        ESP_LOGI(TAG,
+                 "station: " MACSTR " join, AID=%d",
                  MAC2STR(event->event_info.sta_connected.mac),
                  event->event_info.sta_connected.aid);
         break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
-        ESP_LOGI(TAG, "station:" MACSTR "leave, AID=%d",
+        ESP_LOGI(TAG,
+                 "station:" MACSTR "leave, AID=%d",
                  MAC2STR(event->event_info.sta_disconnected.mac),
                  event->event_info.sta_disconnected.aid);
         break;
@@ -43,7 +47,8 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 }
 
 void connect_wifi(std::function<onConnectedCallback> userOnConnected) {
-    onConnected = userOnConnected;
+    onConnected = std::unique_ptr<std::function<onConnectedCallback>>(&userOnConnected);
+
     ESP_LOGI("WIFI", "initialization begin");
     wifi_event_group = xEventGroupCreate();
 
