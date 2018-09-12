@@ -15,11 +15,15 @@
 #include "./wifi.h"
 #include "./http_server.h"
 
-static char * TAG = "RingThing";
+static auto TAG = "RingThing";
 
 static TaskHandle_t flushLightsTask = NULL;
 static TaskHandle_t readFileTask = NULL;
 static TaskHandle_t networkInitTask = NULL;
+
+static void flushLights() {
+    if (flushLightsTask) vTaskResume(flushLightsTask);
+}
 
 extern "C" void testLights(void *params) {
     lights_init();
@@ -46,6 +50,7 @@ extern "C" void startWifiAndHttpServer(void * params) {
     connect_wifi([]() {
         ESP_LOGI(TAG, "onConnect callback triggered!");
         vTaskResume(networkInitTask);
+        flushLights();
     });
 
     vTaskSuspend(networkInitTask);
