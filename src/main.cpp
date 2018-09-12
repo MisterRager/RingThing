@@ -14,9 +14,6 @@
 #include "./wifi.h"
 #include "./http_server.h"
 
-#define WS2812_PIN 22
-#define PIXEL_COUNT 22
-
 static char * TAG = "RingThing";
 
 static TaskHandle_t flushLightsTask = NULL;
