@@ -1,6 +1,7 @@
 #include "./http_server.h"
 
 static const char * TAG = "HTTPD";
+static auto BUFFER_SIZE = 256;
 
 static void pong(Request *request, Response *response)
 {
@@ -11,12 +12,19 @@ static void pong(Request *request, Response *response)
 static int sockfd, newsockfd, portno;
 static struct sockaddr_in serv_addr, cli_addr;
 static unsigned int clilen;
-static char buffer[256];
+static char * buffer;
 static Router *router;
 
 void ringthing_http_start_server()
 {
   ESP_LOGI(TAG, "initialize http server");
+
+  buffer = (char *) heap_caps_malloc(sizeof(char) * BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+
+  if (buffer == NULL) {
+    ESP_LOGW(TAG, "could not allocate PSRAM buffer");
+    buffer = (char *) malloc(sizeof(char) * BUFFER_SIZE);
+  }
 
   /* First call to socket() function */
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -65,8 +73,8 @@ void ringthing_http_server_loop()
   }
 
   /* If connection is established then start communicating */
-  bzero(buffer, 256);
-  n = read(newsockfd, buffer, 255);
+  bzero(buffer, BUFFER_SIZE);
+  n = read(newsockfd, buffer, BUFFER_SIZE - 1);
 
   if (n < 0)
   {
